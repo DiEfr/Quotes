@@ -4,23 +4,25 @@ import android.os.Bundle
 
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.fragment.app.Fragment
 
 import kotlinx.android.synthetic.main.activity_main.*
-import kotlinx.android.synthetic.main.fragment_image.*
+import android.database.sqlite.SQLiteDatabase
+import android.content.ContentValues
+import android.util.Log
+import android.view.View
+import android.widget.Button
 
 
 class MainActivity : AppCompatActivity() {
 
-    private var quotes: String? = null
-    private var author: String? = null
+    var dbHelper: DBHelper = DBHelper(this)
+     var quotes: String? = null
+     var author: String? = null
 
-    /*fun getQuotes(): String? {
-        return this.quotes
-    }
-    fun getAuthor(): String? {
-        return this.author
-    }*/
+    var database: SQLiteDatabase? = null
+    var contentValues = ContentValues()
+
+    var sendButton: Button? = null
 
     private val onNavigationItemSelectedListener = BottomNavigationView.OnNavigationItemSelectedListener { item ->
         when (item.itemId) {
@@ -29,13 +31,9 @@ class MainActivity : AppCompatActivity() {
                 return@OnNavigationItemSelectedListener true
             }
             R.id.action_home -> {
-/* val fatherView=FatherPresentation()
-        addFragment(fatherView,R.id.container)*/
-                /*val frag2 = fragment_main()
-                addFragment(frag2,R.id.container)*/
 
-              /*  qu.text = quotes
-                aff.text = author*/
+                textQuot2.setText(quotes)
+                textAth2.setText(author)
 
                 return@OnNavigationItemSelectedListener true
             }
@@ -48,30 +46,67 @@ class MainActivity : AppCompatActivity() {
     }
 
 
+
     override fun onCreate(savedInstanceState: Bundle?) {
-        getQuote()
+
         super.onCreate(savedInstanceState)
+        getQuote()
         setContentView(R.layout.activity_main)
 
-        val fragmentAdapter = MyPagerAdapter(supportFragmentManager)
-        viewpager.adapter = fragmentAdapter
-        tabs.setupWithViewPager(viewpager)
+        //val database: SQLiteDatabase = dbHelper.writableDatabase
 
 
+        database = dbHelper.writableDatabase
+
+        read()
+
+        sendButton = findViewById(R.id.izbr)
+        sendButton?.setOnClickListener(View.OnClickListener { View->onClickSendButton() })
 
         val navView: BottomNavigationView = findViewById(R.id.nav_view)
 
         navView.setOnNavigationItemSelectedListener(onNavigationItemSelectedListener)
 
+    }
 
+    private fun onClickSendButton() {
+
+
+    }
+
+    private fun read() {
+        val cursor = database?.query(DBHelper.TABLE_CONTACTS, null, null, null, null, null, null)
+
+        if (cursor?.moveToFirst()!!) {
+            val idIndex = cursor?.getColumnIndex(DBHelper.KEY_ID)
+            val quoteIndex = cursor?.getColumnIndex(DBHelper.KEY_QUOTES)
+            val authorIndex = cursor?.getColumnIndex(DBHelper.KEY_AUTHOR)
+            do {
+                Log.d(
+                    "mLog", "ID = " + cursor?.getInt(idIndex) +
+                            ", quote = " + cursor?.getString(quoteIndex) +
+                            ", author = " + cursor?.getString(authorIndex)
+                )
+                quotes = cursor?.getString(quoteIndex)
+                author = cursor?.getString(authorIndex)
+            } while (cursor?.moveToNext())
+        } else
+            Log.d("mLog", "0 rows")
+
+        cursor.close()
     }
 
     private fun getQuote(){
         Repository.instance.getQuotes(object : ResponseCallback<QuoteResponse> {
             override fun onSuccess(apiResponse: QuoteResponse) {
                 val quote = Quotes(apiResponse.quotes, apiResponse.author)
-                quotes = quote.getQuotes
-                author = quote.getAuthor
+
+                contentValues.put(DBHelper.KEY_QUOTES, quote.getQuotes)
+                contentValues.put(DBHelper.KEY_AUTHOR, quote.getAuthor)
+                contentValues.put(DBHelper.KEY_FAVORITES, 0)
+
+                database?.insert(DBHelper.TABLE_CONTACTS, null, contentValues)
+
             }
 
             override fun onFailure(errorMessage: String) {
@@ -80,4 +115,6 @@ class MainActivity : AppCompatActivity() {
         })
     }
 }
+
+
 /*Fragment frag1 = getFragmentManager().findFragmentById(R.id.fragment_image);*/
